@@ -1,0 +1,3 @@
+.claude/
+*.json.bak
+otetsudai-backup-*.json

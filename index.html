@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>おてつだいボード</title>
+  <meta name="description" content="お手伝い・テスト・スマイルゼミのボーナスからおこづかいを計算する家庭用ボード">
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Zen+Maru+Gothic:wght@500;700&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/script.js" defer></script>
+</head>
+<body>
+  <div class="wrap">
+    <div id="app"><p class="loading">よみこみ中…</p></div>
+
+    <details class="settings" id="settings">
+      <summary>おうちの人の設定（名前・学年・金額）</summary>
+      <form class="sform" id="settings-form">
+        <div class="sgroup">
+          <h3>子ども</h3>
+          <div class="fields">
+            <label class="field">名前
+              <input id="set-name" type="text" maxlength="20" placeholder="例：はな">
+            </label>
+            <label class="field">今年度の学年
+              <select id="set-grade"></select>
+              <span class="note">4月になると自動で1つ上がります</span>
+            </label>
+          </div>
+        </div>
+        <div class="sgroup">
+          <h3>固定給</h3>
+          <div class="fields">
+            <label class="field">学年 × いくら
+              <span class="inline"><input id="set-fixed" type="number" min="0" step="10" inputmode="numeric"> 円</span>
+              <span class="note">5年生なら 5 × 100 = 500円</span>
+            </label>
+          </div>
+        </div>
+        <div class="sgroup">
+          <h3>お手伝い</h3>
+          <div class="fields">
+            <label class="field">お風呂掃除
+              <span class="inline"><input id="set-chore-bath" type="number" min="0" step="5" inputmode="numeric"> 円</span>
+            </label>
+            <label class="field">洗濯物をたたむ
+              <span class="inline"><input id="set-chore-laundry" type="number" min="0" step="5" inputmode="numeric"> 円</span>
+            </label>
+            <label class="field">朝学習
+              <span class="inline"><input id="set-chore-study" type="number" min="0" step="5" inputmode="numeric"> 円</span>
+            </label>
+            <label class="field">その他のお手伝い
+              <span class="inline"><input id="set-other" type="number" min="0" step="5" inputmode="numeric"> 円</span>
+            </label>
+            <label class="field">ペットボトル
+              <span class="inline"><input id="set-bottle-per" type="number" min="1" step="1" inputmode="numeric"> 本で
+                <input id="set-bottle-yen" type="number" min="0" step="5" inputmode="numeric"> 円</span>
+            </label>
+          </div>
+        </div>
+        <div class="sgroup">
+          <h3>ボーナス</h3>
+          <div class="fields">
+            <label class="field">テスト100点（国・算・理・社）
+              <span class="inline"><input id="set-test" type="number" min="0" step="10" inputmode="numeric"> 円</span>
+            </label>
+            <label class="field">50点満点テストで50点
+              <span class="inline"><input id="set-test50" type="number" min="0" step="10" inputmode="numeric"> 円</span>
+            </label>
+            <div class="field">スマイルゼミ（夏・冬・春）
+              <span class="note">点数がそのまま金額。小数点以下は切り捨て（87.5点 → 87円）</span>
+            </div>
+          </div>
+        </div>
+        <div class="sform__foot">
+          <button class="btn btn--main" type="submit" id="set-save">保存する</button>
+        </div>
+        <div class="sgroup">
+          <h3>バックアップ</h3>
+          <p class="store-note">記録はこのブラウザの中だけに保存されます。ブラウザのデータを消すと記録も消えるので、おこづかいを渡すときなどに月1回バックアップを保存しておくと安心です。</p>
+          <div class="sform__foot">
+            <button class="btn" type="button" id="backup-save">バックアップを保存</button>
+            <button class="btn" type="button" id="backup-load">バックアップから戻す</button>
+            <input id="backup-file" type="file" accept=".json,application/json" hidden>
+          </div>
+        </div>
+      </form>
+    </details>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
