@@ -83,7 +83,8 @@
       bottleYen: typeof s.bottleYen === "number" ? s.bottleYen : 30,
       otherYen: typeof s.otherYen === "number" ? s.otherYen : 30,
       testYen: typeof s.testYen === "number" ? s.testYen : 100,
-      test50Yen: typeof s.test50Yen === "number" ? s.test50Yen : 50
+      test50Yen: typeof s.test50Yen === "number" ? s.test50Yen : 50,
+      drillYen: typeof s.drillYen === "number" ? s.drillYen : 100
     };
   }
   function gradeFor(mk) { var c = cfg(); return c.baseGrade + (schoolYearOfMonth(mk) - c.baseYear); }
@@ -111,12 +112,20 @@
     var g = gradeFor(mk);
     var fixed = Math.max(0, g) * cfg().fixedPerGrade;
     var b = bottleInfo(mk);
-    var chore = sumKind(mk, "chore") + b.yen;
+    /* 朝学習はお手伝いと分けて集計する */
+    var studies = entriesOf(mk).filter(function (e) { return e.kind === "chore" && e.choreId === "study"; });
+    var study = studies.reduce(function (a, e) { return a + (e.yen || 0); }, 0);
+    var chore = sumKind(mk, "chore") - study + b.yen;
     var test = sumKind(mk, "test");
     var smile = sumKind(mk, "smile");
+    var drill = sumKind(mk, "drill");
     var advance = sumKind(mk, "advance");
-    var earned = fixed + chore + test + smile;
-    return { g: g, fixed: fixed, chore: chore, bottle: b, test: test, smile: smile, advance: advance, earned: earned, total: earned - advance };
+    var earned = fixed + chore + study + test + smile + drill;
+    return {
+      g: g, fixed: fixed, chore: chore, bottle: b, study: study, studyCount: studies.length,
+      test: test, smile: smile, drill: drill, drillCount: entriesOf(mk).filter(function (e) { return e.kind === "drill"; }).length,
+      advance: advance, earned: earned, total: earned - advance
+    };
   }
   /* ペットボトルの30円は、10本目に届いた日についたことにする */
   function bottleYenByDate() {
@@ -137,7 +146,7 @@
   function dayYenMap(mk) {
     var map = {}, bm = bottleYenByDate();
     entriesOf(mk).forEach(function (e) {
-      if (e.kind === "chore" || e.kind === "test" || e.kind === "smile") map[e.date] = (map[e.date] || 0) + (e.yen || 0);
+      if (e.kind === "chore" || e.kind === "test" || e.kind === "smile" || e.kind === "drill") map[e.date] = (map[e.date] || 0) + (e.yen || 0);
     });
     Object.keys(bm).forEach(function (d) { if (monthOf(d) === mk) map[d] = (map[d] || 0) + bm[d]; });
     return map;
@@ -209,6 +218,7 @@
     if (e.kind === "bottle") return "ペットボトル " + e.n + "本";
     if (e.kind === "test") return e.subject + (e.max === 50 ? " 50点満点" : " 100点");
     if (e.kind === "smile") return "スマイルゼミ " + seasonName(e.season) + "のテスト " + e.score + "点";
+    if (e.kind === "drill") return "ドリル制覇：" + e.label;
     if (e.kind === "advance") return "前借り：" + e.label;
     return "";
   }
@@ -225,8 +235,10 @@
     var parts = [
       { k: "fixed", name: "固定給", v: s.fixed, note: gradeLabel(s.g) + " × " + yen(c.fixedPerGrade) },
       { k: "chore", name: "お手伝い", v: s.chore, note: "ボトル " + s.bottle.cnt + "本ふくむ" },
+      { k: "study", name: "朝学習", v: s.study, note: s.studyCount + "回" },
       { k: "test", name: "テスト満点", v: s.test, note: "100点・50点満点" },
-      { k: "smile", name: "スマイルゼミ", v: s.smile, note: "点数＝金額" }
+      { k: "smile", name: "スマイルゼミ", v: s.smile, note: "点数＝金額" },
+      { k: "drill", name: "ドリル制覇", v: s.drill, note: s.drillCount + "冊" }
     ];
     var bar = s.earned > 0 ? parts.map(function (p) {
       return p.v > 0 ? '<span class="c-' + p.k + '" style="width:' + (p.v / s.earned * 100).toFixed(2) + '%"></span>' : "";
@@ -365,7 +377,7 @@
       '<p class="calsum">日ごとの合計 <b class="num">' + yen(monthEarn) + '</b><span>（固定給・前借りは入りません）</span></p>' +
       '<div class="callegend">' +
       c.chores.map(function (ch) { return '<span><i class="mk mk--' + ch.id + '"></i>' + esc(ch.name) + '</span>'; }).join("") +
-      '<span><i class="mk mk--other"></i>その他</span><span><i class="mk mk--bottle"></i>ペットボトル</span><span><i class="mk mk--test"></i>テスト</span><span><i class="mk mk--smile"></i>スマイルゼミ</span>' +
+      '<span><i class="mk mk--other"></i>その他</span><span><i class="mk mk--bottle"></i>ペットボトル</span><span><i class="mk mk--test"></i>テスト</span><span><i class="mk mk--smile"></i>スマイルゼミ</span><span><i class="mk mk--drill"></i>ドリル</span>' +
       '<span><i class="mk mk--advance"></i>前借り</span></div></section>';
   }
 
@@ -391,6 +403,23 @@
       '<ul class="log">' + rows + '</ul></section>';
   }
 
+  /* ドリル制覇：ドリル名を書いて記録。1冊ごとにボーナス */
+  function drillHTML() {
+    var c = cfg();
+    var done = entriesOf(ui.month).filter(function (e) { return e.kind === "drill"; });
+    return '<section class="card" aria-labelledby="h-drill"><div class="card__head"><h2 id="h-drill">ドリル全ページ制覇ボーナス</h2>' +
+      '<p class="card__sub">1冊ぜんぶ終わったら +' + yen(c.drillYen) + '</p></div>' +
+      '<form class="adv" data-form="drill">' +
+      '<label class="field">ドリル名<input id="drill-label" data-keep type="text" maxlength="30" placeholder="例：計算ドリル5年"></label>' +
+      '<button class="btn btn--main" type="submit" id="btn-drill">制覇した！ +' + yen(c.drillYen) + '</button></form>' +
+      (done.length
+        ? '<ul class="drills">' + done.map(function (e) {
+            return '<li><i class="mk mk--drill"></i><span class="drills__name">' + esc(e.label) + '</span>' +
+              '<span class="card__sub num">' + shortDate(e.date) + '</span></li>';
+          }).join("") + '</ul>'
+        : '<p class="card__sub">この月に制覇したドリルはまだありません</p>') + '</section>';
+  }
+
   function advanceHTML() {
     var s = summary(ui.month);
     return '<section class="card" aria-labelledby="h-adv"><div class="card__head"><h2 id="h-adv">前借り</h2>' +
@@ -412,12 +441,13 @@
       var k = shiftMonth(sy + "-04", i), on = k >= start && k <= cur;
       rows.push({ k: k, on: on, s: on ? summary(k) : null, paid: on && !!monthData(k).paid });
     }
-    var t = { got: 0, notyet: 0, earned: 0, adv: 0, fixed: 0, chore: 0, test: 0, smile: 0 };
+    var t = { got: 0, notyet: 0, earned: 0, adv: 0, fixed: 0, chore: 0, study: 0, test: 0, smile: 0, drill: 0 };
     rows.forEach(function (r) {
       if (!r.on) return;
       if (r.paid) t.got += r.s.total; else t.notyet += r.s.total;
       t.earned += r.s.earned; t.adv += r.s.advance;
-      t.fixed += r.s.fixed; t.chore += r.s.chore; t.test += r.s.test; t.smile += r.s.smile;
+      t.fixed += r.s.fixed; t.chore += r.s.chore; t.study += r.s.study;
+      t.test += r.s.test; t.smile += r.s.smile; t.drill += r.s.drill;
     });
     var max = Math.max(1, Math.max.apply(null, rows.map(function (r) { return r.on ? r.s.total : 0; })));
     var tile = function (cls, k, v) {
@@ -430,7 +460,9 @@
       '<div class="yearsum">' + tile(" ytile--main", "1年でもらった", t.got) + tile("", "まだもらっていない", t.notyet) +
       tile("", "1年でかせいだ", t.earned) + tile("", "前借りの合計", t.adv) + '</div>' +
       '<p class="ybreak"><span>固定給 <b class="num">' + yen(t.fixed) + '</b></span><span>お手伝い <b class="num">' + yen(t.chore) + '</b></span>' +
-      '<span>テスト満点 <b class="num">' + yen(t.test) + '</b></span><span>スマイルゼミ <b class="num">' + yen(t.smile) + '</b></span></p>' +
+      '<span>朝学習 <b class="num">' + yen(t.study) + '</b></span>' +
+      '<span>テスト満点 <b class="num">' + yen(t.test) + '</b></span><span>スマイルゼミ <b class="num">' + yen(t.smile) + '</b></span>' +
+      '<span>ドリル制覇 <b class="num">' + yen(t.drill) + '</b></span></p>' +
       '<div class="yrows">' + rows.map(function (r) {
         var m = parseInt(r.k.slice(5), 10) + "月";
         if (!r.on) return '<div class="yrow is-off"><span>' + m + '</span><span class="ytrack"></span><span class="yrow__yen">—</span><span class="ystat"></span></div>';
@@ -439,7 +471,7 @@
           '<span>' + m + '</span><span class="ytrack"><span style="width:' + w.toFixed(2) + '%"></span></span>' +
           '<span class="yrow__yen num">' + yen(r.s.total) + '</span><span class="ystat">' + (r.paid ? "もらった" : "まだ") + '</span></button>';
       }).join("") + '</div>' +
-      '<div class="callegend"><span><i class="sw c-test"></i>もらった月</span><span><i class="sw c-smile"></i>まだの月</span><span>月をおすと、その月を見られます</span></div></section>';
+      '<div class="callegend"><span><i class="sw c-test"></i>もらった月</span><span><i class="sw c-study"></i>まだの月</span><span>月をおすと、その月を見られます</span></div></section>';
   }
 
   function historyHTML() {
@@ -461,7 +493,7 @@
     app.querySelectorAll("[data-keep]").forEach(function (i) { kept[i.id] = i.value; });
     var focusId = app.contains(document.activeElement) ? document.activeElement.id : null;
     app.innerHTML = '<div class="wrap">' + heroHTML() + dayBarHTML() +
-      '<div class="main"><div class="col">' + choresHTML() + testsHTML() + smileHTML() + advanceHTML() + '</div>' +
+      '<div class="main"><div class="col">' + choresHTML() + testsHTML() + smileHTML() + drillHTML() + advanceHTML() + '</div>' +
       '<div class="col">' + calendarHTML() + logHTML() + '</div></div>' + yearHTML() + historyHTML() + '</div>';
     Object.keys(kept).forEach(function (id) { var el = document.getElementById(id); if (el) el.value = kept[id]; });
     if (focusId) { var f = document.getElementById(focusId); if (f) f.focus({ preventScroll: true }); }
@@ -486,6 +518,7 @@
     document.getElementById("set-bottle-yen").value = c.bottleYen;
     document.getElementById("set-test").value = c.testYen;
     document.getElementById("set-test50").value = c.test50Yen;
+    document.getElementById("set-drill").value = c.drillYen;
     document.getElementById("set-other").value = c.otherYen;
   }
   function numVal(id, fallback) {
@@ -509,7 +542,8 @@
       bottleYen: numVal("set-bottle-yen", c.bottleYen),
       otherYen: numVal("set-other", c.otherYen),
       testYen: numVal("set-test", c.testYen),
-      test50Yen: numVal("set-test50", c.test50Yen)
+      test50Yen: numVal("set-test50", c.test50Yen),
+      drillYen: numVal("set-drill", c.drillYen)
     };
     saveLocal();
     document.activeElement && document.activeElement.blur();
@@ -615,6 +649,15 @@
       oi.value = "";
       var oe = { kind: "chore", choreId: "other", label: txt ? "その他：" + txt : "その他のお手伝い", yen: oy, date: ui.selDate };
       addEntry(oe, oe.label + " +" + yen(oy));
+      return;
+    }
+    var df = ev.target.closest("[data-form='drill']");
+    if (df) {
+      ev.preventDefault();
+      var di = document.getElementById("drill-label"), dname = di.value.trim() || "ドリル", dy = cfg().drillYen;
+      di.value = "";
+      var de = { kind: "drill", label: dname, yen: dy, date: ui.selDate };
+      addEntry(de, entryLabel(de) + " +" + yen(dy));
       return;
     }
     var af = ev.target.closest("[data-form='advance']");
