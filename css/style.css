@@ -179,7 +179,8 @@ h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.15rem; mar
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; gap: 10px;
   background: var(--bg); border: 2px solid var(--line); border-radius: var(--r-md); padding: 12px;
 }
-.other .chore__icon { background: var(--neutral); color: var(--on-pastel); }
+/* .chore__icon の grid-area: icon を打ち消す（.other には icon という名前のエリアがないため、右下にずれていた） */
+.other .chore__icon { grid-area: auto; background: var(--neutral); color: var(--on-pastel); }
 .other .field { font-weight: 700; }
 .other .field input { font-weight: 500; }
 .other__count { font-size: .78rem; font-weight: 500; color: var(--ink-soft); margin-left: 8px; }
